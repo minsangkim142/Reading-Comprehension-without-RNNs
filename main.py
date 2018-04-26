@@ -48,6 +48,9 @@ def train(config):
         loss_save = 100.0
         patience = 0
 
+        best_f1 = 0.
+        best_em = 0.
+
         with tf.Session(config=sess_config) as sess:
             writer = tf.summary.FileWriter(config.log_dir)
             sess.run(tf.global_variables_initializer())
@@ -75,7 +78,17 @@ def train(config):
                     metrics, summ = evaluate_batch(
                         model, dev_total // config.batch_size + 1, dev_eval_file, sess, "dev", handle, dev_handle)
 
-                    dev_loss = metrics["loss"]
+                    dev_f1 = metrics["f1"]
+                    dev_em = metrics["exact_match"]
+                    if dev_f1 < best_f1 and dev_em < best_em:
+                        patience += 1
+                        if patience > config.early_stop:
+                            break
+                    else:
+                        patience = 0
+                        best_em = max(best_em, dev_em)
+                        best_f1 = max(best_f1, dev_f1)
+
                     for s in summ:
                         writer.add_summary(s, global_step)
                     writer.flush()
